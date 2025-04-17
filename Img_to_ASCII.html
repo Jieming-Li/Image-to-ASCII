@@ -1,0 +1,142 @@
+<!-- fix mirrored image, reversed color and add dynamic resolution -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live ASCII Cam</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: monospace;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      padding-top: 20px;
+    }
+    video, canvas {
+      display: none;
+    }
+    pre {
+      line-height: 6px;
+      font-size: 6px;
+      white-space: pre;
+    }
+    .controls {
+      color: white;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .slider-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    input[type="range"] {
+      width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <div class="slider-label">
+      Resolution: 
+      <input type="range" id="resolutionSlider" min="40" max="300" value="150">
+      <span id="resolutionVal">150 x 75</span>
+    </div>
+  </div>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+  <pre id="ascii"></pre>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const pre = document.getElementById('ascii');
+    const ctx = canvas.getContext('2d');
+
+    const resolutionSlider = document.getElementById('resolutionSlider');
+    const resolutionVal = document.getElementById('resolutionVal');
+
+    // const asciiChars = "@%#*+=-:. ";
+    const asciiChars = " .:-=+*#%@";
+
+
+    let asciiWidth = parseInt(resolutionSlider.value);
+    let asciiHeight = Math.floor(asciiWidth / 2);
+
+    resolutionSlider.addEventListener('input', () => {
+      asciiWidth = parseInt(resolutionSlider.value);
+      asciiHeight = Math.floor(asciiWidth / 2);
+      resolutionVal.textContent = `${asciiWidth} x ${asciiHeight}`;
+    });
+
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => video.play();
+      } catch (err) {
+        alert("Failed to access camera: " + err);
+      }
+    }
+
+    function getAsciiChar(value) {
+      return asciiChars[Math.floor(value / 256 * asciiChars.length)] || " ";
+    }
+
+    function drawASCII() {
+      canvas.width = asciiWidth;
+      canvas.height = asciiHeight;
+
+        const charWidthCount = asciiWidth;
+        const charHeightCount = asciiHeight;
+        const frameWidthPx = 900;
+        const frameHeightPx = 450;
+
+        const charWidthPx = frameWidthPx / charWidthCount;
+        const charHeightPx = frameHeightPx / charHeightCount;
+
+        pre.style.fontSize = `${charHeightPx}px`;
+        pre.style.lineHeight = `${charHeightPx}px`;
+
+      ctx.save();
+      ctx.translate(asciiWidth, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, asciiWidth, asciiHeight);
+      ctx.restore();
+
+      const imageData = ctx.getImageData(0, 0, asciiWidth, asciiHeight);
+      const data = imageData.data;
+
+      let ascii = "";
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const brightness = (r + g + b) / 3;
+        ascii += getAsciiChar(brightness);
+
+        if ((i / 4 + 1) % asciiWidth === 0) {
+          ascii += "\n";
+        }
+      }
+      pre.textContent = ascii;
+      requestAnimationFrame(drawASCII);
+    }
+
+    setupCamera().then(() => {
+      video.addEventListener('play', () => drawASCII());
+    });
+  </script>
+</body>
+</html>
+
+
+
